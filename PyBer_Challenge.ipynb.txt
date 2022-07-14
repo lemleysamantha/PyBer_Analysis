@@ -1,0 +1,145 @@
+# Add Matplotlib inline magic command
+%matplotlib inline
+
+# Setup dependencies
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import os
+
+# Data files to load
+city_data_to_load = os.path.join("Resources", "city_data.csv")
+ride_data_to_load = os.path.join("Resources", "ride_data.csv")
+
+# Read data files and store them in a Pandas DataFrame
+city_data_df = pd.read_csv(city_data_to_load)
+ride_data_df = pd.read_csv(ride_data_to_load)
+
+city_data_df.count()
+city_data_df.isnull().sum()
+city_data_df.dtypes
+city_data_df["type"].unique()
+
+ride_data_df.count()
+ride_data_df.isnull().sum()
+ride_data_df.dtypes
+
+# Combine data into a single data
+pyber_data_df = pd.merge(ride_data_df, city_data_df, how="left", on=["city", "city"])
+pyber_data_df.dtypes
+
+total_rides_by_city_type = pyber_data_df.groupby(["type"]).count()["ride_id"]
+total_rides_by_city_type
+
+total_drivers_by_city_type = city_data_df.groupby(["type"]).sum()["driver_count"]
+total_drivers_by_city_type
+
+total_fares_by_city_type = pyber_data_df.groupby(["type"]).sum()["fare"]
+total_fares_by_city_type
+
+avgfares_perride_by_city_type = total_fares_by_city_type / total_rides_by_city_type
+avgfares_perride_by_city_type
+
+avgfare_perdriver_by_city_type = total_fares_by_city_type / total_drivers_by_city_type
+avgfare_perdriver_by_city_type
+
+total_rides_by_city_type.index.name = None
+total_rides_by_city_type
+
+total_drivers_by_city_type.index.name = None
+total_drivers_by_city_type
+
+total_fares_by_city_type.index.name = None
+total_fares_by_city_type
+
+summary_df = pd.DataFrame()
+
+summary_df["Total Rides"] = total_rides_by_city_type
+summary_df["Total Drivers"] = total_drivers_by_city_type
+summary_df["Total Fares"] = total_fares_by_city_type
+summary_df["Average Fare per Ride"] = avgfares_perride_by_city_type
+summary_df["Average Fare per Driver"] = avgfare_perdriver_by_city_type
+
+summary_df
+
+summary_df.dtypes
+
+summary_df["Total Rides"] = summary_df["Total Rides"].map("{:,}".format)
+summary_df["Total Drivers"] = summary_df["Total Drivers"].map("{:,}".format)
+summary_df["Total Fares"] = summary_df["Total Fares"].map("${:,.2f}".format)
+summary_df["Average Fare per Ride"] = summary_df["Average Fare per Ride"].map("${:.2f}".format)
+summary_df["Average Fare per Driver"] = summary_df["Average Fare per Driver"].map("${:.2f}".format)
+
+summary_df
+
+
+pyber_data_df = pyber_data_df.rename(columns =
+                                     {"city": "City",
+                                     "date": "Date", 
+                                     "fare": "Fare", 
+                                     "ride_id": "Ride Id",
+                                     "driver_count": "No. Drivers",
+                                     "type": "City Type"})
+# set the index column to the date column
+pyber_data_df.head(10)
+
+pyber_data_df.set_index(pyber_data_df["Date"], inplace=True)
+pyber_data_df.info()
+
+# create a new dataframe for faresand put in date, city, and fare columns using the copy method
+pyber_cities_fares= pyber_data_df[["Date", "City Type", "Fare"]].copy()
+pyber_cities_fares.head(10)
+
+# drop the extra date column
+pyber_cities_fares.drop(["Date"], axis=1, inplace=True)
+pyber_cities_fares.head(10)
+
+# set the index to the datetime data type
+pyber_cities_fares.index = pd.to_datetime(pyber_data_df.index)
+pyber_cities_fares.head(10)
+
+#check dataframe using the info method to make sure the index is a datetime data type
+pyber_cities_fares.info()
+
+# calculate the sum of fares by city type and date using groupby to create a new dataframe
+sum_fares = pyber_cities_fares.groupby(["City Type", "Date"]).sum()[["Fare"]]
+sum_fares
+sum_fares_df = pd.DataFrame(sum_fares)
+sum_fares_df
+
+# reset the index
+sum_fares_df = sum_fares_df.reset_index()
+sum_fares_df.head(10)
+
+# create pivot table dataframe
+sum_fares_pivot = sum_fares_df.pivot(index="Date", columns="City Type")["Fare"]
+sum_fares_pivot.head(10)
+
+# create new dataframe from the pivot table dataframe using loc
+fares_Jan_April_df = sum_fares_pivot.loc['2019-01-01':'2019-04-28']
+fares_Jan_April_df
+
+# create new data frame by setting the dataframe you created with resample
+weekly_fares_df = fares_Jan_April_df.resample("W").sum()
+weekly_fares_df
+
+# object-oriented interface method to plot the dataframe 
+# Use the graph style fivethirtyeight
+plt.style.use('fivethirtyeight')
+weekly_fares_df.plot(figsize=(14, 8))
+plt.gcf().subplots_adjust(bottom=0.15)
+
+# Add graph properties
+plt.title("Total Fare by City Type", fontsize=16)
+plt.ylabel("Fare ($USD)", fontsize=14)
+plt.xlabel("Month", fontsize=14)
+
+# Create a legend
+lgnd = plt.legend(fontsize="10", loc="best", title="City Type")
+lgnd.get_title().set_fontsize(12)
+
+# Save figure
+plt.savefig("Analysis/Fig8.png")
+
+# Show figure
+plt.show()
